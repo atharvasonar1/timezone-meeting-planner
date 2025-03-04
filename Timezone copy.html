@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timezone Meeting Planner</title>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #f06292;
+            --text: #333;
+            --background: #f5f5f5;
+            --card: #ffffff;
+            --border: #e0e0e0;
+            --highlight: #e3f2fd;
+            --selected: rgba(67, 97, 238, 0.15);
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--background);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 0;
+            margin: 0;
+        }
+        
+        header {
+            background-color: white;
+            border-bottom: 1px solid var(--border);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        h1 {
+            font-weight: 500;
+            font-size: 1.4rem;
+            color: var(--text);
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .btn {
+            padding: 8px 15px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            background: white;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border: none;
+        }
+        
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .locations-bar {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .add-location-btn {
+            background: var(--highlight);
+            border: 1px dashed var(--primary);
+            color: var(--primary);
+            border-radius: 4px;
+            padding: 8px 15px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+        
+        .location-pill {
+            background: var(--highlight);
+            border-radius: 20px;
+            padding: 5px 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .location-pill .remove {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 0 5px;
+        }
+        
+        .calendar-grid {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .date-selector {
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .date-selector .date-btn {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .date-selector .date-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .date-selector .date-btn:hover:not(.active) {
+            background: var(--highlight);
+        }
+        
+        .time-grid {
+            overflow-x: auto;
+            padding: 15px 0;
+            position: relative;
+            background: #fff;
+        }
+        
+        .time-row {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            position: relative;
+            min-height: 70px;
+        }
+        
+        .time-row:last-child {
+            border-bottom: none;
+        }
+        
+        .location-label {
+            width: 150px;
+            min-width: 150px;
+            padding: 15px 20px;
+            background: #f8faff;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            border-right: 1px solid var(--border);
+            position: sticky;
+            left: 0;
+            z-index: 2;
+            box-shadow: 2px 0 4px rgba(0,0,0,0.05);
+            font-size: 0.95rem;
+            color: var(--text);
+        }
+        
+        .hours-container {
+            display: flex;
+            position: relative;
+            flex: 1;
+        }
+        
+        .hour-cell {
+           width: 80px;
+           min-width: 80px;
+           height: 70px;
+           display: flex;
+           align-items: center;
+           justify-content: center;
+           border-right: 1px solid #eee;
+           position: relative;
+           transition: all 0.2s ease;
+           flex-direction: column;
+           padding: 8px;
+           cursor: pointer;
+        }
+        
+        .hour-cell.business-hours {
+            background-color: rgba(220, 237, 255, 0.15);
+        }
+        
+        .hour-cell.selected {
+            background-color: rgba(67, 97, 238, 0.12);
+            border: 2px solid var(--primary);
+        }
+        
+        .hour-cell.corresponding-time {
+            background-color: rgba(67, 97, 238, 0.08);
+            border: 1px dashed var(--primary);
+        }
+        
+        .hour-cell.optimal {
+            background-color: rgba(67, 97, 238, 0.15);
+        }
+        
+        .hour-cell.optimal::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--primary);
+        }
+        
+        .hour-cell:hover {
+            background-color: rgba(67, 97, 238, 0.08);
+            transform: scale(1.02);
+            z-index: 1;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .hour-cell .hour {
+            font-weight: 600;
+            color: var(--text);
+            font-size: 1.1rem;
+        }
+        
+        .hour-cell .am-pm {
+            font-size: 0.8rem;
+            color: #666;
+            font-weight: 500;
+            margin-top: 2px;
+        }
+        
+        .optimal-badge {
+            position: absolute;
+            top: -10px;
+            font-size: 0.75rem;
+            background: var(--primary);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+
+        .hour-cell .time-status {
+            font-size: 0.75rem;
+            color: #666;
+            position: absolute;
+            bottom: 6px;
+            text-align: center;
+            font-weight: 500;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(0,0,0,0.04);
+        }
+
+        .hour-cell.optimal .time-status {
+            color: var(--primary);
+            background: rgba(67, 97, 238, 0.1);
+        }
+        
+        .hour-cell.selected .time-status {
+            background: rgba(67, 97, 238, 0.15);
+            color: var(--primary);
+        }
+        
+        .copy-time-btn {
+            display: none;
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: var(--primary);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.2);
+            transition: all 0.2s ease;
+            z-index: 100;
+        }
+
+        .copy-time-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(67, 97, 238, 0.3);
+        }
+
+        .copy-time-btn.visible {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .info-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .info-section h2 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: var(--primary);
+        }
+        
+        .steps-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .step {
+            display: flex;
+            gap: 15px;
+            align-items: flex-start;
+        }
+        
+        .step-number {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .step-content {
+            flex: 1;
+        }
+        
+        .step-content h3 {
+            font-size: 1rem;
+            margin-bottom: 5px;
+        }
+        
+        .step-content p {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .highlight {
+            color: var(--secondary);
+            font-weight: 500;
+        }
+        
+        .location-dropdown {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            padding: 10px 0;
+            z-index: 10;
+            display: none;
+            width: 280px;
+        }
+        
+        .location-dropdown.show {
+            display: block;
+        }
+        
+        .location-dropdown-item {
+            padding: 10px 15px;
+            cursor: pointer;
+        }
+        
+        .location-dropdown-item:hover {
+            background: var(--highlight);
+        }
+        
+        @media (max-width: 768px) {
+            .locations-bar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .location-label {
+                width: 80px;
+                min-width: 80px;
+                font-size: 0.8rem;
+            }
+            
+            .hour-cell {
+                width: 40px;
+                min-width: 40px;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Timezone Meeting Planner</h1>
+        <div class="header-actions">
+            <button class="btn" id="settings-btn">Settings</button>
+            <button class="btn btn-primary" id="save-btn">Save</button>
+        </div>
+    </header>
+    
+    <div class="main-container">
+        <div class="locations-bar" id="locations-bar">
+            <button class="add-location-btn" id="add-location-btn">+ Add Location</button>
+            <!-- Location pills will be added here -->
+        </div>
+        
+        <div class="calendar-grid">
+            <div class="date-selector">
+                <button class="date-btn">«</button>
+                <button class="date-btn active">Today</button>
+                <button class="date-btn">1</button>
+                <button class="date-btn">2</button>
+                <button class="date-btn">3</button>
+                <button class="date-btn">4</button>
+                <button class="date-btn">5</button>
+                <button class="date-btn">»</button>
+                
+                <div style="flex: 1;"></div>
+                
+                <button class="btn">Business Hours</button>
+            </div>
+            
+            <div class="time-grid" id="time-grid">
+                <!-- Time rows will be added here -->
+            </div>
+        </div>
+        
+        <button id="copyTimeBtn" class="copy-time-btn">Copy Meeting Time</button>
+
+        <div class="info-section">
+            <h2>Getting Started</h2>
+            <div class="steps-container">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>ADD LOCATIONS</h3>
+                        <p>Click the "+ Add Location" button to add cities or time zones</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>HOVER OVER HOURS TO <span class="highlight">CONVERT TIME</span></h3>
+                        <p>Mouse over any hour to see the corresponding time in all locations</p>
+                        <p>Optimal time is recommended calculated using business hours</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>COPY<span class="highlight">MEETING TIME</span></h3>
+                        <p>Select a time and click "Copy Meeting Time" to save a summary to your clipboard. Paste it anywhere to share.</p>
+                        <p>Example:</p>
+                        <p>Meeting time: Tuesday, 3:00 PM (New York) / 8:00 PM (London) / 5:00 AM (Tokyo)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="location-dropdown" id="location-dropdown">
+        <div class="location-dropdown-item" data-timezone="America/New_York">New York (UTC-5)</div>
+        <div class="location-dropdown-item" data-timezone="Europe/London">London (UTC)</div>
+        <div class="location-dropdown-item" data-timezone="Europe/Paris">Paris (UTC+1)</div>
+        <div class="location-dropdown-item" data-timezone="Asia/Tokyo">Tokyo (UTC+9)</div>
+        <div class="location-dropdown-item" data-timezone="Australia/Sydney">Sydney (UTC+11)</div>
+        <div class="location-dropdown-item" data-timezone="Asia/Kolkata">Mumbai (UTC+5:30)</div>
+        <div class="location-dropdown-item" data-timezone="America/Los_Angeles">San Francisco (UTC-8)</div>
+        <div class="location-dropdown-item" data-timezone="America/Chicago">Chicago (UTC-6)</div>
+        <div class="location-dropdown-item" data-timezone="Asia/Singapore">Singapore (UTC+8)</div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const addLocationBtn = document.getElementById('add-location-btn');
+            const locationsBar = document.getElementById('locations-bar');
+            const locationDropdown = document.getElementById('location-dropdown');
+            const timeGrid = document.getElementById('time-grid');
+            const copyTimeBtn = document.getElementById('copyTimeBtn');
+            
+            let locations = [];
+            let selectedHour = -1;
+            
+            // Copy time button click handler
+            copyTimeBtn.addEventListener('click', async function() {
+                const summary = generateMeetingSummary();
+                try {
+                    await navigator.clipboard.writeText(summary);
+                    
+                    // Visual feedback
+                    const originalText = this.textContent;
+                    this.textContent = 'Copied!';
+                    setTimeout(() => {
+                        this.textContent = originalText;
+                    }, 2000);
+                } catch (err) {
+                    console.error('Failed to copy text:', err);
+                }
+            });
+
+            function generateMeetingSummary() {
+                if (selectedHour === -1) return '';
+                
+                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                const today = new Date();
+                const dayName = days[today.getDay()];
+                
+                const times = locations.map(location => {
+                    const localTime = convertToLocalTime(selectedHour, location.timezone);
+                    const hour = localTime % 12 || 12;
+                    const ampm = localTime < 12 ? 'AM' : 'PM';
+                    return `${hour}:00 ${ampm} (${location.name})`;
+                });
+
+                return `Meeting time: ${dayName}, ${times.join(' / ')}`;
+            }
+
+            // Toggle location dropdown
+            addLocationBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                locationDropdown.classList.toggle('show');
+            });
+            
+            // Close dropdown when clicking elsewhere
+            document.addEventListener('click', function() {
+                locationDropdown.classList.remove('show');
+            });
+            
+            // Prevent click inside dropdown from closing it
+            locationDropdown.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+            
+            // Add location when clicking dropdown item
+            document.querySelectorAll('.location-dropdown-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const timezone = this.dataset.timezone;
+                    const locationName = this.textContent.split(' ')[0];
+                    
+                    if (!locations.some(loc => loc.timezone === timezone)) {
+                        locations.push({
+                            name: locationName,
+                            timezone: timezone
+                        });
+                        
+                        // Add location pill
+                        addLocationPill(locationName, timezone);
+                        
+                        // Update time grid
+                        updateTimeGrid();
+                        
+                        // Hide dropdown
+                        locationDropdown.classList.remove('show');
+                    }
+                });
+            });
+            
+            // Function to add location pill
+            function addLocationPill(name, timezone) {
+                const pill = document.createElement('div');
+                pill.className = 'location-pill';
+                pill.dataset.timezone = timezone;
+                pill.innerHTML = `
+                    ${name}
+                    <button class="remove" data-timezone="${timezone}">×</button>
+                `;
+                
+                // Insert before the add button
+                locationsBar.insertBefore(pill, addLocationBtn);
+                
+                // Add remove event
+                pill.querySelector('.remove').addEventListener('click', function() {
+                    const timezone = this.dataset.timezone;
+                    locations = locations.filter(loc => loc.timezone !== timezone);
+                    pill.remove();
+                    updateTimeGrid();
+                });
+            }
+            
+            // Function to update time grid
+            function updateTimeGrid() {
+                // Clear existing grid
+                timeGrid.innerHTML = '';
+                
+                if (locations.length === 0) return;
+                
+                // Calculate optimal meeting times based on business hours across all locations
+                const optimalTimes = calculateOptimalMeetingTimes();
+                
+                // For each location, create a row
+                locations.forEach(location => {
+                    const row = document.createElement('div');
+                    row.className = 'time-row';
+                    row.dataset.timezone = location.timezone;
+                    
+                    // Add location label
+                    const label = document.createElement('div');
+                    label.className = 'location-label';
+                    label.textContent = location.name;
+                    row.appendChild(label);
+                    
+                    // Add hours container
+                    const hoursContainer = document.createElement('div');
+                    hoursContainer.className = 'hours-container';
+                    
+                    // Add hour cells
+                    for (let h = 0; h < 24; h++) {
+                        const hourCell = document.createElement('div');
+                        hourCell.className = 'hour-cell';
+                        hourCell.dataset.hour = h;
+                        
+                        // Business hours (8 AM to 6 PM)
+                        const localTime = convertToLocalTime(h, location.timezone);
+                        if (localTime >= 8 && localTime <= 18) {
+                            hourCell.classList.add('business-hours');
+                        }
+                        
+                        // Selected hour
+                        if (h === selectedHour) {
+                            hourCell.classList.add('selected');
+                        }
+                        
+                        // Check if this is an optimal time
+                        const isOptimal = optimalTimes.includes(h);
+                        if (isOptimal) {
+                            hourCell.classList.add('optimal');
+                            const badge = document.createElement('div');
+                            badge.className = 'optimal-badge';
+                            badge.textContent = 'Optimal Time';
+                            hourCell.appendChild(badge);
+                        }
+                        
+                        // Hour display
+                        const displayHour = localTime % 12 || 12;
+                        const ampm = localTime < 12 ? 'am' : 'pm';
+                        
+                        hourCell.innerHTML += `
+                            <span class="hour">${displayHour}</span>
+                            <span class="am-pm">${ampm}</span>
+                        `;
+                        
+                        
+                        // Click event
+                        hourCell.addEventListener('click', function() {
+                            handleTimeSelection(h);
+                        });
+                        
+                        // Hover event for time comparison
+                        hourCell.addEventListener('mouseenter', () => {
+                            highlightCorrespondingTimes(h);
+                        });
+                        
+                        hourCell.addEventListener('mouseleave', () => {
+                            removeCorrespondingHighlights();
+                        });
+                        
+                        hoursContainer.appendChild(hourCell);
+                    }
+                    
+                    row.appendChild(hoursContainer);
+                    timeGrid.appendChild(row);
+                });
+            }
+            
+            function handleTimeSelection(hour) {
+                selectedHour = hour;
+                
+                // Remove previous selections
+                document.querySelectorAll('.hour-cell.selected').forEach(cell => {
+                    cell.classList.remove('selected');
+                });
+                
+                // Add new selections
+                locations.forEach(location => {
+                    const row = timeGrid.querySelector(`[data-timezone="${location.timezone}"]`);
+                    const localTime = convertToLocalTime(hour, location.timezone);
+                    const cells = row.querySelectorAll('.hour-cell');
+                    
+                    cells.forEach(cell => {
+                        const cellHour = parseInt(cell.dataset.hour);
+                        const cellLocalTime = convertToLocalTime(cellHour, location.timezone);
+                        if (cellLocalTime === localTime) {
+                            cell.classList.add('selected');
+                        }
+                    });
+                });
+
+                // Show copy button when time is selected
+                copyTimeBtn.classList.add('visible');
+            }
+            
+            function highlightCorrespondingTimes(hoveredHour) {
+                removeCorrespondingHighlights();
+                
+                locations.forEach(location => {
+                    const row = timeGrid.querySelector(`[data-timezone="${location.timezone}"]`);
+                    const localTime = convertToLocalTime(hoveredHour, location.timezone);
+                    const cells = row.querySelectorAll('.hour-cell');
+                    
+                    cells.forEach(cell => {
+                        const cellHour = parseInt(cell.dataset.hour);
+                        const cellLocalTime = convertToLocalTime(cellHour, location.timezone);
+                        if (cellLocalTime === localTime && !cell.classList.contains('selected')) {
+                            cell.classList.add('corresponding-time');
+                        }
+                    });
+                });
+            }
+            
+            function removeCorrespondingHighlights() {
+                document.querySelectorAll('.hour-cell.corresponding-time').forEach(cell => {
+                    cell.classList.remove('corresponding-time');
+                });
+            }
+            
+            // Function to calculate optimal meeting times
+            function calculateOptimalMeetingTimes() {
+                const optimalTimes = [];
+                for (let hour = 0; hour < 24; hour++) {
+                    let isOptimal = true;
+                    for (const location of locations) {
+                        const localTime = convertToLocalTime(hour, location.timezone);
+                        if (localTime < 9 || localTime > 18) {
+                            isOptimal = false;
+                            break;
+                        }
+                    }
+                    if (isOptimal) {
+                        optimalTimes.push(hour);
+                    }
+                }
+                return optimalTimes;
+            }
+            
+            // Function to convert time between time zones
+            function convertToLocalTime(hour, timezone) {
+                const date = new Date();
+                date.setHours(hour);
+                const options = { timeZone: timezone, hour: 'numeric', hour12: false };
+                return parseInt(new Intl.DateTimeFormat('en-US', options).format(date));
+            }
+            
+            // Initialize with some example locations
+            const defaultLocations = [
+                { name: 'New York', timezone: 'America/New_York' },
+                { name: 'London', timezone: 'Europe/London' },
+                { name: 'Tokyo', timezone: 'Asia/Tokyo' }
+            ];
+            
+            // Add default locations
+            defaultLocations.forEach(loc => {
+                if (!locations.some(l => l.timezone === loc.timezone)) {
+                    locations.push(loc);
+                    addLocationPill(loc.name, loc.timezone);
+                }
+            });
+            
+            // Initialize grid
+            updateTimeGrid();
+        });
+    </script>
+</body>
+</html>
